@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专业工作流编排系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .app-header {
+            background: #4a90e2;
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .app-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .sidebar-section h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #4a90e2;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 14px;
+            margin: 12px 0 8px 0;
+            color: #666;
+        }
+        
+        .node-library {
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .node-item {
+            background: #e8f4fc;
+            color: #4a90e2;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        
+        .node-item:hover {
+            background: #d1e7fd;
+            transform: translateX(4px);
+            border-color: #4a90e2;
+        }
+        
+        .node-item .node-label {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .node-item .node-id {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .workflow-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        
+        .workflow-toolbar {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .toolbar-button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .toolbar-button:hover {
+            background: #357abd;
+        }
+        
+        .toolbar-button.secondary {
+            background: #6c757d;
+        }
+        
+        .toolbar-button.danger {
+            background: #dc3545;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+        }
+        
+        #canvas {
+            width: 2000px;
+            height: 1500px;
+            background-image: 
+                linear-gradient(#e9ecef 1px, transparent 1px),
+                linear-gradient(90deg, #e9ecef 1px, transparent 1px);
+            background-size: 20px 20px;
+            position: relative;
+        }
+        
+        .canvas-node {
+            position: absolute;
+            width: 180px;
+            background: white;
+            border: 2px solid #4a90e2;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: move;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+        
+        .canvas-node.gateway {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        
+        .canvas-node.selected {
+            border-color: #ff6b6b;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        .node-header {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .node-subtitle {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .node-ports {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+        
+        .port {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border: 3px solid #4a90e2;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .canvas-node.gateway .port {
+            border-color: #ff6b6b;
+        }
+        
+        .port:hover {
+            transform: scale(1.2);
+        }
+        
+        .port.in-port {
+            margin-right: auto;
+        }
+        
+        .port.out-port {
+            margin-left: auto;
+        }
+        
+        .property-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e9ecef;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .property-section {
+            margin-bottom: 24px;
+        }
+        
+        .property-section h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #4a90e2;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .property-panel .button {
+            flex: 1;
+        }
+        
+        #svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            z-index: 5;
+        }
+        
+        .connection-line {
+            stroke: #4a90e2;
+            stroke-width: 3;
+            fill: none;
+            cursor: pointer;
+        }
+        
+        .connection-line.selected {
+            stroke: #ff6b6b;
+            stroke-width: 4;
+        }
+        
+        .condition-editor {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .condition-row {
+            margin-bottom: 12px;
+        }
+        
+        .condition-row select,
+        .condition-row input {
+            margin-right: 8px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>专业工作流编排系统</h1>
+            <p>可视化编排原子能力，构建复杂工作流</p>
+        </header>
+        
+        <main class="app-main">
+            <!-- 左侧侧边栏 -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h2>节点库</h2>
+                </div>
+                
+                <div class="node-library">
+                    <div class="sidebar-section" style="border-bottom: none;">
+                        <h3>任务节点</h3>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="page_submit">
+                            <div class="node-label">页面提单</div>
+                            <div class="node-id">page_submit</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="table_check">
+                            <div class="node-label">入湖表检查</div>
+                            <div class="node-id">table_check</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="llm">
+                            <div class="node-label">大模型分析</div>
+                            <div class="node-id">llm</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="sql_generate">
+                            <div class="node-label">SQL生成</div>
+                            <div class="node-id">sql_generate</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="integration_task_generate">
+                            <div class="node-label">集成任务生成</div>
+                            <div class="node-id">integration_task_generate</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="task" data-node-id="integration_task_deploy">
+                            <div class="node-label">集成任务部署</div>
+                            <div class="node-id">integration_task_deploy</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sidebar-section" style="border-bottom: none;">
+                        <h3>网关节点</h3>
+                        <div class="node-item" draggable="true" data-node-type="gateway" data-node-id="parallel_gateway">
+                            <div class="node-label">并行网关</div>
+                            <div class="node-id">parallel_gateway</div>
+                        </div>
+                        <div class="node-item" draggable="true" data-node-type="gateway" data-node-id="exclusive_gateway">
+                            <div class="node-label">排他网关</div>
+                            <div class="node-id">exclusive_gateway</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            
+            <!-- 中间工作流区域 -->
+            <section class="workflow-area">
+                <!-- 工具栏 -->
+                <div class="workflow-toolbar">
+                    <button class="toolbar-button" onclick="saveWorkflow()">保存工作流</button>
+                    <button class="toolbar-button secondary" onclick="clearWorkflow()">清空画布</button>
+                    <button class="toolbar-button secondary" onclick="zoomIn()">放大</button>
+                    <button class="toolbar-button secondary" onclick="zoomOut()">缩小</button>
+                    <button class="toolbar-button secondary" onclick="resetZoom()">重置视图</button>
+                    <div style="margin-left: auto; color: #666;">
+                        <span id="nodeCount">0</span> 节点 | <span id="edgeCount">0</span> 连线
+                    </div>
+                </div>
+                
+                <!-- 画布 -->
+                <div class="canvas-container">
+                    <div id="canvas">
+                        <svg id="svg-canvas"></svg>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 右侧属性面板 -->
+            <aside class="property-panel">
+                <div class="property-section">
+                    <h2>属性编辑</h2>
+                    <div id="emptyProperty" class="empty-state">
+                        <h3>选择元素</h3>
+                        <p>点击节点或连线进行编辑</p>
+                    </div>
+                    
+                    <!-- 节点属性 -->
+                    <div id="nodeProperties" style="display: none;">
+                        <div class="form-group">
+                            <label for="nodeName">节点名称</label>
+                            <input type="text" id="nodeName" placeholder="节点名称">
+                        </div>
+                        <div class="form-group">
+                            <label for="nodeDescription">节点描述</label>
+                            <textarea id="nodeDescription" placeholder="节点描述"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 连线属性 -->
+                    <div id="edgeProperties" style="display: none;">
+                        <div class="condition-editor">
+                            <h3 style="margin-bottom: 12px; font-size: 14px;">条件配置</h3>
+                            <div class="condition-row">
+                                <select id="conditionType" style="width: auto;">
+                                    <option value="equals">等于</option>
+                                    <option value="not_equals">不等于</option>
+                                    <option value="greater">大于</option>
+                                    <option value="less">小于</option>
+                                    <option value="contains">包含</option>
+                                </select>
+                                <input type="text" id="conditionValue" placeholder="条件值" style="width: auto;">
+                            </div>
+                            <div class="button-group">
+                                <button class="toolbar-button" onclick="saveCondition()">保存条件</button>
+                                <button class="toolbar-button secondary" onclick="clearCondition()">清除条件</button>
+                            </div>
+                            <div style="margin-top: 12px; font-size: 14px;">
+                                <strong>当前条件：</strong>
+                                <span id="currentConditionText">无</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+    
+    <script>
+        // 工作流数据
+        let workflow = {
+            nodes: [],
+            edges: [],
+            nextNodeId: 1
+        };
+        
+        // 状态管理
+        let selectedElement = null;
+        let selectedElementType = null;
+        let isDragging = false;
+        let draggedNode = null;
+        let dragOffset = { x: 0, y: 0 };
+        let connectionState = null;
+        let tempLine = null;
+        
+        // 节点类型映射
+        const nodeTypeMap = {
+            'page_submit': '页面提单',
+            'table_check': '入湖表检查',
+            'llm': '大模型分析',
+            'sql_generate': 'SQL生成',
+            'integration_task_generate': '集成任务生成',
+            'integration_task_deploy': '集成任务部署',
+            'parallel_gateway': '并行网关',
+            'exclusive_gateway': '排他网关'
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initCanvas();
+            initNodeLibrary();
+            updateWorkflowInfo();
+        });
+        
+        // 初始化画布
+        function initCanvas() {
+            const canvas = document.getElementById('canvas');
+            const svgCanvas = document.getElementById('svg-canvas');
+            
+            // 设置SVG尺寸
+            svgCanvas.setAttribute('width', canvas.clientWidth);
+            svgCanvas.setAttribute('height', canvas.clientHeight);
+            
+            // 添加箭头标记
+            addArrowMarker();
+            
+            // 画布事件
+            canvas.addEventListener('click', onCanvasClick);
+        }
+        
+        // 添加箭头标记
+        function addArrowMarker() {
+            const svg = document.getElementById('svg-canvas');
+            
+            if (!document.getElementById('arrowhead')) {
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                marker.setAttribute('id', 'arrowhead');
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '7');
+                marker.setAttribute('refX', '9');
+                marker.setAttribute('refY', '3.5');
+                marker.setAttribute('orient', 'auto');
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+                polygon.setAttribute('fill', '#4a90e2');
+                
+                marker.appendChild(polygon);
+                svg.appendChild(marker);
+            }
+        }
+        
+        // 初始化节点库
+        function initNodeLibrary() {
+            const nodeItems = document.querySelectorAll('.node-item');
+            nodeItems.forEach(item => {
+                item.addEventListener('dragstart', onNodeDragStart);
+            });
+            
+            // 画布拖放事件
+            const canvas = document.getElementById('canvas');
+            canvas.addEventListener('dragover', onCanvasDragOver);
+            canvas.addEventListener('drop', onCanvasDrop);
+        }
+        
+        // 节点拖动开始
+        function onNodeDragStart(e) {
+            e.dataTransfer.setData('nodeType', e.target.dataset.nodeType);
+            e.dataTransfer.setData('nodeId', e.target.dataset.nodeId);
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+        
+        // 画布拖过
+        function onCanvasDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        }
+        
+        // 画布放置
+        function onCanvasDrop(e) {
+            e.preventDefault();
+            
+            const nodeType = e.dataTransfer.getData('nodeType');
+            const nodeId = e.dataTransfer.getData('nodeId');
+            
+            const canvas = document.getElementById('canvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            addNode(nodeType, nodeId, x, y);
+        }
+        
+        // 添加节点
+        function addNode(type, nodeId, x, y) {
+            const node = {
+                id: `node_${workflow.nextNodeId++}`,
+                type: type,
+                nodeId: nodeId,
+                label: nodeTypeMap[nodeId],
+                x: x - 90,
+                y: y - 40,
+                data: {
+                    id: nodeId,
+                    label: nodeTypeMap[nodeId]
+                }
+            };
+            
+            workflow.nodes.push(node);
+            renderNode(node);
+            updateWorkflowInfo();
+        }
+        
+        // 渲染节点
+        function renderNode(node) {
+            const canvas = document.getElementById('canvas');
+            const nodeEl = document.createElement('div');
+            nodeEl.className = `canvas-node ${node.type}`;
+            nodeEl.dataset.nodeId = node.id;
+            nodeEl.style.left = `${node.x}px`;
+            nodeEl.style.top = `${node.y}px`;
+            
+            // 节点内容
+            const nodeContent = `
+                <div class="node-header">${node.label}</div>
+                <div class="node-subtitle">${node.nodeId}</div>
+                <div class="node-ports">
+                    <div class="port in-port" data-node-id="${node.id}" data-port="in" onclick="startConnection('${node.id}', 'in')"></div>
+                    <div class="port out-port" data-node-id="${node.id}" data-port="out" onclick="startConnection('${node.id}', 'out')"></div>
+                </div>
+            `;
+            
+            nodeEl.innerHTML = nodeContent;
+            
+            // 节点拖动事件
+            nodeEl.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('port')) return;
+                
+                e.stopPropagation();
+                selectElement(node.id, 'node');
+                startNodeDrag(e, node, nodeEl);
+            });
+            
+            canvas.appendChild(nodeEl);
+        }
+        
+        // 开始节点拖动
+        function startNodeDrag(e, node, nodeEl) {
+            isDragging = true;
+            draggedNode = node;
+            const rect = nodeEl.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
+            document.addEventListener('mousemove', onNodeDrag);
+            document.addEventListener('mouseup', onNodeDragEnd);
+        }
+        
+        // 节点拖动中
+        function onNodeDrag(e) {
+            if (!isDragging || !draggedNode) return;
+            
+            const canvas = document.getElementById('canvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left - dragOffset.x;
+            const y = e.clientY - rect.top - dragOffset.y;
+            
+            // 更新节点位置
+            draggedNode.x = x;
+            draggedNode.y = y;
+            
+            // 更新DOM位置
+            const nodeEl = document.querySelector(`[data-node-id="${draggedNode.id}"]`);
+            if (nodeEl) {
+                nodeEl.style.left = `${x}px`;
+                nodeEl.style.top = `${y}px`;
+            }
+            
+            // 重绘连线
+            redrawEdges();
+        }
+        
+        // 节点拖动结束
+        function onNodeDragEnd() {
+            isDragging = false;
+            draggedNode = null;
+            document.removeEventListener('mousemove', onNodeDrag);
+            document.removeEventListener('mouseup', onNodeDragEnd);
+        }
+        
+        // 开始连线
+        function startConnection(nodeId, port) {
+            const node = workflow.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+            
+            connectionState = {
+                sourceNode: node,
+                sourcePort: port,
+                startX: port === 'in' ? node.x : node.x + 180,
+                startY: node.y + 40
+            };
+            
+            // 创建临时连线
+            const svg = document.getElementById('svg-canvas');
+            tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tempLine.setAttribute('class', 'connection-line');
+            tempLine.setAttribute('stroke', '#4a90e2');
+            tempLine.setAttribute('stroke-width', '3');
+            tempLine.setAttribute('marker-end', 'url(#arrowhead)');
+            tempLine.setAttribute('x1', connectionState.startX);
+            tempLine.setAttribute('y1', connectionState.startY);
+            tempLine.setAttribute('x2', connectionState.startX);
+            tempLine.setAttribute('y2', connectionState.startY);
+            svg.appendChild(tempLine);
+            
+            // 添加事件监听
+            document.addEventListener('mousemove', onConnectionDrag);
+            document.addEventListener('mouseup', onConnectionEnd);
+        }
+        
+        // 连线拖动
+        function onConnectionDrag(e) {
+            if (!connectionState || !tempLine) return;
+            
+            const canvas = document.getElementById('canvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            tempLine.setAttribute('x2', x);
+            tempLine.setAttribute('y2', y);
+        }
+        
+        // 连线结束
+        function onConnectionEnd(e) {
+            if (!connectionState || !tempLine) return;
+            
+            // 清除临时连线
+            const svg = document.getElementById('svg-canvas');
+            svg.removeChild(tempLine);
+            tempLine = null;
+            
+            // 检查目标
+            const target = e.target;
+            if (target.classList.contains('port')) {
+                const targetNodeId = target.dataset.nodeId;
+                const targetPort = target.dataset.port;
+                const sourceNode = connectionState.sourceNode;
+                
+                // 验证连接有效性
+                if (sourceNode.id !== targetNodeId) {
+                    // 创建连线
+                    addEdge(sourceNode.id, targetNodeId, sourceNode.nodeId, workflow.nodes.find(n => n.id === targetNodeId).nodeId);
+                }
+            }
+            
+            connectionState = null;
+            document.removeEventListener('mousemove', onConnectionDrag);
+            document.removeEventListener('mouseup', onConnectionEnd);
+        }
+        
+        // 添加连线
+        function addEdge(sourceId, targetId, sourceNodeId, targetNodeId) {
+            const edge = {
+                id: `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                source: sourceId,
+                target: targetId,
+                sourceNodeId: sourceNodeId,
+                targetNodeId: targetNodeId,
+                condition: null
+            };
+            
+            workflow.edges.push(edge);
+            redrawEdges();
+            updateWorkflowInfo();
+        }
+        
+        // 重绘所有连线
+        function redrawEdges() {
+            const svg = document.getElementById('svg-canvas');
+            
+            // 清除现有连线
+            const existingLines = svg.querySelectorAll('.connection-line, [data-edge-id]');
+            existingLines.forEach(line => {
+                if (line.tagName.toLowerCase() !== 'marker') {
+                    svg.removeChild(line);
+                }
+            });
+            
+            // 绘制新连线
+            workflow.edges.forEach(edge => {
+                const sourceNode = workflow.nodes.find(n => n.id === edge.source);
+                const targetNode = workflow.nodes.find(n => n.id === edge.target);
+                
+                if (sourceNode && targetNode) {
+                    const startX = sourceNode.x + 180;
+                    const startY = sourceNode.y + 40;
+                    const endX = targetNode.x;
+                    const endY = targetNode.y + 40;
+                    
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('class', 'connection-line');
+                    if (selectedElementType === 'edge' && edge.id === selectedElement) {
+                        line.classList.add('selected');
+                        line.setAttribute('stroke', '#ff6b6b');
+                        line.setAttribute('stroke-width', '4');
+                    } else {
+                        line.setAttribute('stroke', '#4a90e2');
+                        line.setAttribute('stroke-width', '3');
+                    }
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                    line.setAttribute('x1', startX);
+                    line.setAttribute('y1', startY);
+                    line.setAttribute('x2', endX);
+                    line.setAttribute('y2', endY);
+                    line.setAttribute('data-edge-id', edge.id);
+                    
+                    // 点击事件
+                    line.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectElement(edge.id, 'edge');
+                    });
+                    
+                    svg.appendChild(line);
+                }
+            });
+        }
+        
+        // 选择元素
+        function selectElement(id, type) {
+            // 清除之前的选中状态
+            clearSelection();
+            
+            selectedElement = id;
+            selectedElementType = type;
+            
+            // 显示属性面板
+            showPropertyPanel(type);
+            
+            // 设置选中样式
+            if (type === 'node') {
+                const nodeEl = document.querySelector(`[data-node-id="${id}"]`);
+                if (nodeEl) {
+                    nodeEl.classList.add('selected');
+                }
+            } else if (type === 'edge') {
+                redrawEdges();
+            }
+        }
+        
+        // 清除选择
+        function clearSelection() {
+            selectedElement = null;
+            selectedElementType = null;
+            
+            // 清除节点选中
+            const nodes = document.querySelectorAll('.canvas-node');
+            nodes.forEach(node => node.classList.remove('selected'));
+            
+            // 重绘连线
+            redrawEdges();
+            
+            // 显示空状态
+            document.getElementById('emptyProperty').style.display = 'block';
+            document.getElementById('nodeProperties').style.display = 'none';
+            document.getElementById('edgeProperties').style.display = 'none';
+        }
+        
+        // 画布点击
+        function onCanvasClick() {
+            clearSelection();
+        }
+        
+        // 显示属性面板
+        function showPropertyPanel(type) {
+            document.getElementById('emptyProperty').style.display = 'none';
+            document.getElementById('nodeProperties').style.display = type === 'node' ? 'block' : 'none';
+            document.getElementById('edgeProperties').style.display = type === 'edge' ? 'block' : 'none';
+            
+            // 更新属性值
+            if (type === 'node') {
+                const node = workflow.nodes.find(n => n.id === selectedElement);
+                if (node) {
+                    document.getElementById('nodeName').value = node.label;
+                    document.getElementById('nodeDescription').value = '';
+                }
+            } else if (type === 'edge') {
+                const edge = workflow.edges.find(e => e.id === selectedElement);
+                if (edge && edge.condition) {
+                    document.getElementById('conditionType').value = edge.condition.type;
+                    document.getElementById('conditionValue').value = edge.condition.value;
+                    document.getElementById('currentConditionText').textContent = `${edge.condition.type} ${edge.condition.value}`;
+                } else {
+                    document.getElementById('conditionType').value = 'equals';
+                    document.getElementById('conditionValue').value = '';
+                    document.getElementById('currentConditionText').textContent = '无';
+                }
+            }
+        }
+        
+        // 保存条件
+        function saveCondition() {
+            if (!selectedElement || selectedElementType !== 'edge') return;
+            
+            const type = document.getElementById('conditionType').value;
+            const value = document.getElementById('conditionValue').value;
+            
+            const edge = workflow.edges.find(e => e.id === selectedElement);
+            if (edge) {
+                edge.condition = { type, value };
+                document.getElementById('currentConditionText').textContent = `${type} ${value}`;
+                alert('条件保存成功！');
+            }
+        }
+        
+        // 清除条件
+        function clearCondition() {
+            if (!selectedElement || selectedElementType !== 'edge') return;
+            
+            const edge = workflow.edges.find(e => e.id === selectedElement);
+            if (edge) {
+                edge.condition = null;
+                document.getElementById('conditionValue').value = '';
+                document.getElementById('currentConditionText').textContent = '无';
+                alert('条件已清除！');
+            }
+        }
+        
+        // 更新工作流信息
+        function updateWorkflowInfo() {
+            document.getElementById('nodeCount').textContent = workflow.nodes.length;
+            document.getElementById('edgeCount').textContent = workflow.edges.length;
+        }
+        
+        // 保存工作流
+        function saveWorkflow() {
+            const config = {
+                name: '未命名工作流',
+                nodes: workflow.nodes,
+                edges: workflow.edges.map(edge => ({
+                    id: edge.id,
+                    start: edge.sourceNodeId,
+                    end: edge.targetNodeId,
+                    condition: edge.condition
+                }))
+            };
+            
+            console.log('保存的工作流:', config);
+            alert('工作流已保存到控制台！');
+        }
+        
+        // 清空工作流
+        function clearWorkflow() {
+            if (confirm('确定要清空画布吗？')) {
+                // 清除节点
+                const canvas = document.getElementById('canvas');
+                const nodes = canvas.querySelectorAll('.canvas-node');
+                nodes.forEach(node => canvas.removeChild(node));
+                
+                // 清除连线
+                const svg = document.getElementById('svg-canvas');
+                const lines = svg.querySelectorAll('.connection-line');
+                lines.forEach(line => svg.removeChild(line));
+                
+                // 重置数据
+                workflow = {
+                    nodes: [],
+                    edges: [],
+                    nextNodeId: 1
+                };
+                
+                clearSelection();
+                updateWorkflowInfo();
+            }
+        }
+        
+        // 缩放功能
+        function zoomIn() {
+            console.log('放大功能待实现');
+        }
+        
+        function zoomOut() {
+            console.log('缩小功能待实现');
+        }
+        
+        function resetZoom() {
+            console.log('重置视图功能待实现');
+        }
+    </script>
+</body>
+</html>

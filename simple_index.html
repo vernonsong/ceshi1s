@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简化版工作流编排</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #4a90e2;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .workflow-editor {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .node-library {
+            width: 250px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        
+        .node-library h3 {
+            margin-bottom: 15px;
+            color: #4a90e2;
+        }
+        
+        .node-item {
+            background: #e8f4fc;
+            color: #4a90e2;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            cursor: move;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .node-item:hover {
+            background: #d1e7fd;
+            border-color: #4a90e2;
+        }
+        
+        .editor-canvas {
+            flex: 1;
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            min-height: 600px;
+            overflow: auto;
+        }
+        
+        .canvas-node {
+            position: absolute;
+            width: 150px;
+            padding: 15px;
+            background: #4a90e2;
+            color: white;
+            border-radius: 8px;
+            cursor: move;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10;
+            user-select: none;
+        }
+        
+        .canvas-node:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .node-input {
+            position: absolute;
+            left: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #4a90e2;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 11;
+        }
+        
+        .node-output {
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #4a90e2;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 11;
+        }
+        
+        .node-type {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .node-name {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .connection-line {
+            position: absolute;
+            stroke: #4a90e2;
+            stroke-width: 3;
+            fill: none;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .connection-arrow {
+            fill: #4a90e2;
+        }
+        
+        .canvas-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            z-index: 5;
+        }
+        
+        .connection-line {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            background: #357abd;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .condition-editor {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .condition-editor h4 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        .condition-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .condition-row select, .condition-row input {
+            flex: 1;
+        }
+        
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .workflow-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        /* 节点颜色样式 */
+        .node-task {
+            background: #4a90e2;
+        }
+        
+        .node-gateway {
+            background: #ff6b6b;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .node-gateway .node-type {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>简化版工作流编排</h1>
+            <p>基于LangGraph的原子能力编排系统</p>
+        </header>
+        
+        <div class="workflow-editor">
+            <!-- 节点库 -->
+            <div class="node-library">
+                <h3>节点库</h3>
+                
+                <h4 style="margin: 15px 0 10px 0; color: #666;">任务节点</h4>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="excel_import">
+                    <div class="node-type">Excel导入</div>
+                    <div class="node-name">excel_import</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="page_submit">
+                    <div class="node-type">页面提单</div>
+                    <div class="node-name">page_submit</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="table_check">
+                    <div class="node-type">入湖表检查</div>
+                    <div class="node-name">table_check</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="sql_generate">
+                    <div class="node-type">SQL生成</div>
+                    <div class="node-name">sql_generate</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="sql_execute">
+                    <div class="node-type">SQL执行</div>
+                    <div class="node-name">sql_execute</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="integration_task_generate">
+                    <div class="node-type">集成任务生成</div>
+                    <div class="node-name">integration_task_generate</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="integration_task_deploy">
+                    <div class="node-type">集成任务部署</div>
+                    <div class="node-name">integration_task_deploy</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="task" data-node-id="llm">
+                    <div class="node-type">大模型分析</div>
+                    <div class="node-name">llm</div>
+                </div>
+                
+                <h4 style="margin: 15px 0 10px 0; color: #666;">网关节点</h4>
+                <div class="node-item" draggable="true" data-node-type="gateway" data-node-id="parallel_gateway">
+                    <div class="node-type">并行网关</div>
+                    <div class="node-name">parallel_gateway</div>
+                </div>
+                <div class="node-item" draggable="true" data-node-type="gateway" data-node-id="exclusive_gateway">
+                    <div class="node-type">排他网关</div>
+                    <div class="node-name">exclusive_gateway</div>
+                </div>
+            </div>
+            
+            <!-- 编辑画布 -->
+            <div class="editor-canvas" id="editorCanvas">
+                <!-- SVG 用于绘制连线 -->
+                <svg class="canvas-svg" id="canvasSvg"></svg>
+            </div>
+        </div>
+        
+        <!-- 控制区域 -->
+        <div class="controls">
+            <h3>工作流配置</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="control-group">
+                    <label for="workflowName">工作流名称</label>
+                    <input type="text" id="workflowName" placeholder="输入工作流名称">
+                </div>
+                <div class="control-group">
+                    <label for="workflowDesc">工作流描述</label>
+                    <input type="text" id="workflowDesc" placeholder="输入工作流描述">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="workflowSource">源数据 (JSON)</label>
+                <textarea id="workflowSource" placeholder='{
+  "tables": [
+    {
+      "name": "user_info",
+      "columns": [
+        {"name": "user_id", "type": "int", "primary_key": true},
+        {"name": "user_name", "type": "string", "not_null": true}
+      ]
+    }
+  ],
+  "submit_user": "demo_user"
+}'></textarea>
+            </div>
+            
+            <button class="btn" onclick="saveWorkflow()">保存工作流</button>
+            <button class="btn btn-secondary" onclick="clearWorkflow()">清空画布</button>
+            <button class="btn btn-danger" onclick="deleteSelected()">删除选中</button>
+            
+            <!-- 条件编辑区 -->
+            <div class="condition-editor">
+                <h4>条件配置</h4>
+                <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                    选择一条连线，配置执行条件
+                </p>
+                <div id="conditionEditor" style="display: none;">
+                    <div class="condition-row">
+                        <select id="conditionOperator">
+                            <option value="equals">等于</option>
+                            <option value="not_equals">不等于</option>
+                            <option value="greater">大于</option>
+                            <option value="less">小于</option>
+                            <option value="contains">包含</option>
+                        </select>
+                        <input type="text" id="conditionValue" placeholder="条件值">
+                        <button class="btn btn-sm" onclick="addCondition()">添加条件</button>
+                        <button class="btn btn-sm btn-secondary" onclick="updateCondition()">更新条件</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCondition()">删除条件</button>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>当前条件：</strong>
+                        <span id="currentCondition">无</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 工作流信息 -->
+            <div class="workflow-info">
+                <h4>工作流状态</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div><strong>节点数：</strong><span id="nodeCount">0</span></div>
+                    <div><strong>连线数：</strong><span id="edgeCount">0</span></div>
+                    <div><strong>当前选中：</strong><span id="selectedItem">无</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 工作流数据
+        let workflowData = {
+            nodes: [],
+            edges: [],
+            nextNodeId: 1
+        };
+        
+        // 拖拽状态
+        let dragState = {
+            isDragging: false,
+            draggedNode: null,
+            dragOffset: { x: 0, y: 0 }
+        };
+        
+        // 连线状态
+        let connectionState = {
+            isConnecting: false,
+            sourceNode: null,
+            sourceOutput: null,
+            tempLine: null
+        };
+        
+        // 选中状态
+        let selectedItem = null;
+        let selectedItemType = null; // 'node' or 'edge'
+        
+        // 节点类型映射
+        const nodeTypeNames = {
+            'excel_import': 'Excel导入',
+            'page_submit': '页面提单',
+            'table_check': '入湖表检查',
+            'sql_generate': 'SQL生成',
+            'sql_execute': 'SQL执行',
+            'integration_task_generate': '集成任务生成',
+            'integration_task_deploy': '集成任务部署',
+            'llm': '大模型分析',
+            'parallel_gateway': '并行网关',
+            'exclusive_gateway': '排他网关'
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initNodeLibrary();
+            initCanvas();
+            updateWorkflowInfo();
+        });
+        
+        // 初始化节点库
+        function initNodeLibrary() {
+            const nodeItems = document.querySelectorAll('.node-item');
+            nodeItems.forEach(item => {
+                item.addEventListener('dragstart', onNodeDragStart);
+            });
+        }
+        
+        // 初始化画布
+        function initCanvas() {
+            const canvas = document.getElementById('editorCanvas');
+            
+            // 画布拖放事件
+            canvas.addEventListener('dragover', onCanvasDragOver);
+            canvas.addEventListener('drop', onCanvasDrop);
+            canvas.addEventListener('click', onCanvasClick);
+            
+            // 窗口大小变化时更新SVG
+            window.addEventListener('resize', updateCanvasSvg);
+            updateCanvasSvg();
+        }
+        
+        // 更新SVG尺寸
+        function updateCanvasSvg() {
+            const canvas = document.getElementById('editorCanvas');
+            const svg = document.getElementById('canvasSvg');
+            svg.setAttribute('width', canvas.scrollWidth);
+            svg.setAttribute('height', canvas.scrollHeight);
+        }
+        
+        // 节点拖动开始
+        function onNodeDragStart(e) {
+            e.dataTransfer.setData('nodeType', e.target.dataset.nodeType);
+            e.dataTransfer.setData('nodeId', e.target.dataset.nodeId);
+            e.dataTransfer.effectAllowed = 'copy';
+        }
+        
+        // 画布拖过事件
+        function onCanvasDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        }
+        
+        // 画布放置事件
+        function onCanvasDrop(e) {
+            e.preventDefault();
+            
+            const nodeType = e.dataTransfer.getData('nodeType');
+            const nodeId = e.dataTransfer.getData('nodeId');
+            
+            const canvas = document.getElementById('editorCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            addNode(nodeType, nodeId, x, y);
+        }
+        
+        // 添加节点
+        function addNode(type, nodeId, x, y) {
+            const node = {
+                id: `node_${workflowData.nextNodeId++}`,
+                type: type,
+                nodeId: nodeId,
+                name: nodeTypeNames[nodeId],
+                x: x - 75,
+                y: y - 30
+            };
+            
+            workflowData.nodes.push(node);
+            renderNode(node);
+            updateWorkflowInfo();
+        }
+        
+        // 渲染节点
+        function renderNode(node) {
+            const canvas = document.getElementById('editorCanvas');
+            const nodeEl = document.createElement('div');
+            nodeEl.className = `canvas-node node-${node.type}`;
+            nodeEl.dataset.nodeId = node.id;
+            nodeEl.style.left = `${node.x}px`;
+            nodeEl.style.top = `${node.y}px`;
+            
+            // 节点内容
+            const nodeContent = `
+                <div class="node-type">${node.name}</div>
+                <div class="node-name">${node.nodeId}</div>
+                <div class="node-input" data-node-id="${node.id}" data-port="input"></div>
+                <div class="node-output" data-node-id="${node.id}" data-port="output"></div>
+            `;
+            
+            nodeEl.innerHTML = nodeContent;
+            
+            // 添加节点事件
+            addNodeEvents(nodeEl, node);
+            
+            canvas.appendChild(nodeEl);
+        }
+        
+        // 添加节点事件
+        function addNodeEvents(nodeEl, node) {
+            // 节点拖拽
+            nodeEl.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('node-input') || e.target.classList.contains('node-output')) {
+                    return; // 连接点点击处理
+                }
+                
+                e.stopPropagation();
+                selectItem(node.id, 'node');
+                dragState.isDragging = true;
+                dragState.draggedNode = node;
+                const rect = nodeEl.getBoundingClientRect();
+                dragState.dragOffset.x = e.clientX - rect.left;
+                dragState.dragOffset.y = e.clientY - rect.top;
+                
+                document.addEventListener('mousemove', onNodeDrag);
+                document.addEventListener('mouseup', onNodeDragEnd);
+            });
+            
+            // 输入连接点
+            const input = nodeEl.querySelector('.node-input');
+            input.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                startConnection(node, 'input');
+            });
+            
+            // 输出连接点
+            const output = nodeEl.querySelector('.node-output');
+            output.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                startConnection(node, 'output');
+            });
+        }
+        
+        // 节点拖拽
+        function onNodeDrag(e) {
+            if (!dragState.isDragging) return;
+            
+            const canvas = document.getElementById('editorCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left - dragState.dragOffset.x;
+            const y = e.clientY - rect.top - dragState.dragOffset.y;
+            
+            // 更新节点位置
+            const node = dragState.draggedNode;
+            node.x = x;
+            node.y = y;
+            
+            // 更新DOM位置
+            const nodeEl = document.querySelector(`[data-node-id="${node.id}"]`);
+            if (nodeEl) {
+                nodeEl.style.left = `${x}px`;
+                nodeEl.style.top = `${y}px`;
+            }
+            
+            // 重新绘制连线
+            redrawEdges();
+        }
+        
+        // 节点拖拽结束
+        function onNodeDragEnd() {
+            dragState.isDragging = false;
+            dragState.draggedNode = null;
+            document.removeEventListener('mousemove', onNodeDrag);
+            document.removeEventListener('mouseup', onNodeDragEnd);
+        }
+        
+        // 开始连线
+        function startConnection(node, port) {
+            connectionState.isConnecting = true;
+            connectionState.sourceNode = node;
+            connectionState.sourcePort = port;
+            
+            // 创建临时连线
+            const svg = document.getElementById('canvasSvg');
+            const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tempLine.setAttribute('class', 'connection-line');
+            tempLine.setAttribute('stroke', '#4a90e2');
+            tempLine.setAttribute('stroke-width', '3');
+            tempLine.setAttribute('marker-end', 'url(#arrowhead)');
+            svg.appendChild(tempLine);
+            connectionState.tempLine = tempLine;
+            
+            // 添加事件监听
+            document.addEventListener('mousemove', onConnectionDrag);
+            document.addEventListener('mouseup', onConnectionEnd);
+        }
+        
+        // 连线拖动
+        function onConnectionDrag(e) {
+            if (!connectionState.isConnecting) return;
+            
+            const canvas = document.getElementById('editorCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            // 计算起点
+            const node = connectionState.sourceNode;
+            const startX = connectionState.sourcePort === 'input' ? node.x : node.x + 150;
+            const startY = node.y + 30;
+            
+            // 更新临时连线
+            const line = connectionState.tempLine;
+            line.setAttribute('x1', startX);
+            line.setAttribute('y1', startY);
+            line.setAttribute('x2', endX);
+            line.setAttribute('y2', endY);
+        }
+        
+        // 连线结束
+        function onConnectionEnd(e) {
+            if (!connectionState.isConnecting) return;
+            
+            // 清除临时连线
+            const svg = document.getElementById('canvasSvg');
+            if (connectionState.tempLine) {
+                svg.removeChild(connectionState.tempLine);
+                connectionState.tempLine = null;
+            }
+            
+            // 检查目标
+            const target = e.target;
+            if (target.classList.contains('node-input') || target.classList.contains('node-output')) {
+                const targetNodeId = target.dataset.nodeId;
+                const targetPort = target.dataset.port;
+                const sourceNode = connectionState.sourceNode;
+                
+                // 验证连接有效性
+                if (sourceNode.id !== targetNodeId) {
+                    // 创建连线
+                    addEdge(sourceNode.id, targetNodeId, sourceNode.nodeId, getNodeById(targetNodeId).nodeId);
+                }
+            }
+            
+            // 清除状态
+            connectionState.isConnecting = false;
+            connectionState.sourceNode = null;
+            connectionState.sourcePort = null;
+            
+            document.removeEventListener('mousemove', onConnectionDrag);
+            document.removeEventListener('mouseup', onConnectionEnd);
+        }
+        
+        // 添加连线
+        function addEdge(sourceId, targetId, sourceNodeId, targetNodeId) {
+            const edge = {
+                id: `edge_${Date.now()}`,
+                source: sourceId,
+                target: targetId,
+                sourceNodeId: sourceNodeId,
+                targetNodeId: targetNodeId,
+                condition: null // 条件配置
+            };
+            
+            workflowData.edges.push(edge);
+            redrawEdges();
+            updateWorkflowInfo();
+        }
+        
+        // 重绘所有连线
+        function redrawEdges() {
+            const svg = document.getElementById('canvasSvg');
+            
+            // 清除现有连线 - 只保留marker元素
+            const allChildren = svg.children;
+            const childrenToRemove = [];
+            for (let i = 0; i < allChildren.length; i++) {
+                const child = allChildren[i];
+                if (child.tagName.toLowerCase() !== 'marker') {
+                    childrenToRemove.push(child);
+                }
+            }
+            childrenToRemove.forEach(child => svg.removeChild(child));
+            
+            // 绘制新连线
+            workflowData.edges.forEach(edge => {
+                const sourceNode = getNodeById(edge.source);
+                const targetNode = getNodeById(edge.target);
+                
+                if (sourceNode && targetNode) {
+                    const startX = sourceNode.x + 150;
+                    const startY = sourceNode.y + 30;
+                    const endX = targetNode.x;
+                    const endY = targetNode.y + 30;
+                    
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('class', 'connection-line');
+                    line.setAttribute('data-edge-id', edge.id);
+                    line.setAttribute('x1', startX);
+                    line.setAttribute('y1', startY);
+                    line.setAttribute('x2', endX);
+                    line.setAttribute('y2', endY);
+                    line.setAttribute('stroke', '#4a90e2');
+                    line.setAttribute('stroke-width', '3');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                    
+                    // 连线点击事件
+                    line.addEventListener('click', (e) => {
+                        e.stopPropagation(); // 阻止事件冒泡
+                        selectItem(edge.id, 'edge');
+                    });
+                    
+                    svg.appendChild(line);
+                }
+            });
+        }
+        
+        // 选择项目
+        function selectItem(id, type) {
+            // 清除之前的选中状态
+            clearSelection();
+            
+            selectedItem = id;
+            selectedItemType = type;
+            
+            // 设置选中样式
+            if (type === 'node') {
+                const nodeEl = document.querySelector(`[data-node-id="${id}"]`);
+                if (nodeEl) {
+                    nodeEl.style.border = '2px solid #ff6b6b';
+                }
+            } else if (type === 'edge') {
+                const edgeEl = document.querySelector(`[data-edge-id="${id}"]`);
+                if (edgeEl) {
+                    edgeEl.setAttribute('stroke', '#ff6b6b');
+                    edgeEl.setAttribute('stroke-width', '4');
+                }
+                
+                // 显示条件编辑器
+                document.getElementById('conditionEditor').style.display = 'block';
+                
+                // 显示当前条件
+                const edge = workflowData.edges.find(e => e.id === id);
+                if (edge && edge.condition) {
+                    document.getElementById('currentCondition').textContent = `条件: ${edge.condition.operator} ${edge.condition.value}`;
+                    // 更新表单值
+                    document.getElementById('conditionOperator').value = edge.condition.operator;
+                    document.getElementById('conditionValue').value = edge.condition.value;
+                } else {
+                    document.getElementById('currentCondition').textContent = '无';
+                    // 重置表单
+                    document.getElementById('conditionOperator').value = 'equals';
+                    document.getElementById('conditionValue').value = '';
+                }
+            }
+            
+            updateWorkflowInfo();
+        }
+        
+        // 添加条件
+        function addCondition() {
+            if (!selectedItem || selectedItemType !== 'edge') {
+                alert('请先选择一条连线');
+                return;
+            }
+            
+            const operator = document.getElementById('conditionOperator').value;
+            const value = document.getElementById('conditionValue').value;
+            
+            if (!value) {
+                alert('请输入条件值');
+                return;
+            }
+            
+            // 保存条件到连线
+            const edge = workflowData.edges.find(e => e.id === selectedItem);
+            if (edge) {
+                edge.condition = {
+                    operator: operator,
+                    value: value
+                };
+                
+                // 更新显示
+                document.getElementById('currentCondition').textContent = `条件: ${operator} ${value}`;
+                alert('条件添加成功！');
+            }
+        }
+        
+        // 更新条件
+        function updateCondition() {
+            if (!selectedItem || selectedItemType !== 'edge') {
+                alert('请先选择一条连线');
+                return;
+            }
+            
+            const operator = document.getElementById('conditionOperator').value;
+            const value = document.getElementById('conditionValue').value;
+            
+            if (!value) {
+                alert('请输入条件值');
+                return;
+            }
+            
+            // 更新条件到连线
+            const edge = workflowData.edges.find(e => e.id === selectedItem);
+            if (edge) {
+                edge.condition = {
+                    operator: operator,
+                    value: value
+                };
+                
+                // 更新显示
+                document.getElementById('currentCondition').textContent = `条件: ${operator} ${value}`;
+                alert('条件更新成功！');
+            }
+        }
+        
+        // 删除条件
+        function deleteCondition() {
+            if (!selectedItem || selectedItemType !== 'edge') {
+                alert('请先选择一条连线');
+                return;
+            }
+            
+            // 删除连线的条件
+            const edge = workflowData.edges.find(e => e.id === selectedItem);
+            if (edge) {
+                edge.condition = null;
+                
+                // 更新显示
+                document.getElementById('currentCondition').textContent = '无';
+                alert('条件删除成功！');
+            }
+        }
+        
+        // 清除选中
+        function clearSelection() {
+            // 清除节点选中
+            const nodes = document.querySelectorAll('.canvas-node');
+            nodes.forEach(node => {
+                node.style.border = '';
+            });
+            
+            // 清除连线选中
+            const edges = document.querySelectorAll('[data-edge-id]');
+            edges.forEach(edge => {
+                edge.setAttribute('stroke', '#4a90e2');
+                edge.setAttribute('stroke-width', '3');
+            });
+            
+            // 隐藏条件编辑器
+            document.getElementById('conditionEditor').style.display = 'none';
+            
+            selectedItem = null;
+            selectedItemType = null;
+            updateWorkflowInfo();
+        }
+        
+        // 画布点击
+        function onCanvasClick(e) {
+            if (e.target === document.getElementById('editorCanvas')) {
+                clearSelection();
+            }
+        }
+        
+        // 获取节点
+        function getNodeById(id) {
+            return workflowData.nodes.find(node => node.id === id);
+        }
+        
+        // 更新工作流信息
+        function updateWorkflowInfo() {
+            document.getElementById('nodeCount').textContent = workflowData.nodes.length;
+            document.getElementById('edgeCount').textContent = workflowData.edges.length;
+            
+            let selectedText = '无';
+            if (selectedItem) {
+                if (selectedItemType === 'node') {
+                    const node = getNodeById(selectedItem);
+                    selectedText = `节点: ${node.name}`;
+                } else {
+                    selectedText = `连线: ${selectedItem}`;
+                }
+            }
+            document.getElementById('selectedItem').textContent = selectedText;
+        }
+        
+        // 保存工作流
+        function saveWorkflow() {
+            const name = document.getElementById('workflowName').value;
+            const desc = document.getElementById('workflowDesc').value;
+            const sourceData = document.getElementById('workflowSource').value;
+            
+            if (!name) {
+                alert('请输入工作流名称');
+                return;
+            }
+            
+            // 构建工作流配置
+            const config = {
+                name: name,
+                description: desc,
+                nodes: workflowData.nodes.map(node => node.nodeId),
+                edges: workflowData.edges.map(edge => ({
+                    start: edge.sourceNodeId,
+                    end: edge.targetNodeId,
+                    condition: edge.condition
+                })),
+                node_configs: {},
+                source_data: sourceData ? JSON.parse(sourceData) : {}
+            };
+            
+            console.log('保存的工作流配置:', config);
+            alert('工作流保存成功！\n\n配置已输出到控制台。');
+        }
+        
+        // 更新条件显示
+        function updateConditionDisplay() {
+            if (selectedItem && selectedItemType === 'edge') {
+                const edge = workflowData.edges.find(e => e.id === selectedItem);
+                if (edge && edge.condition) {
+                    document.getElementById('currentCondition').textContent = `条件: ${edge.condition.operator} ${edge.condition.value}`;
+                } else {
+                    document.getElementById('currentCondition').textContent = '无';
+                }
+            }
+        }
+        
+        // 清空工作流
+        function clearWorkflow() {
+            if (confirm('确定要清空画布吗？')) {
+                // 清除节点
+                const canvas = document.getElementById('editorCanvas');
+                const nodes = canvas.querySelectorAll('.canvas-node');
+                nodes.forEach(node => canvas.removeChild(node));
+                
+                // 清除连线
+                const svg = document.getElementById('canvasSvg');
+                const edges = svg.querySelectorAll('.connection-line');
+                edges.forEach(edge => svg.removeChild(edge));
+                
+                // 重置数据
+                workflowData = {
+                    nodes: [],
+                    edges: [],
+                    nextNodeId: 1
+                };
+                
+                clearSelection();
+                updateWorkflowInfo();
+            }
+        }
+        
+        // 删除选中
+        function deleteSelected() {
+            if (!selectedItem) {
+                alert('请先选择要删除的节点或连线');
+                return;
+            }
+            
+            if (selectedItemType === 'node') {
+                // 删除节点
+                const nodeIndex = workflowData.nodes.findIndex(node => node.id === selectedItem);
+                if (nodeIndex > -1) {
+                    workflowData.nodes.splice(nodeIndex, 1);
+                    
+                    // 删除相关连线
+                    workflowData.edges = workflowData.edges.filter(edge => 
+                        edge.source !== selectedItem && edge.target !== selectedItem
+                    );
+                    
+                    // 更新DOM
+                    const nodeEl = document.querySelector(`[data-node-id="${selectedItem}"]`);
+                    if (nodeEl) {
+                        document.getElementById('editorCanvas').removeChild(nodeEl);
+                    }
+                }
+            } else if (selectedItemType === 'edge') {
+                // 删除连线
+                workflowData.edges = workflowData.edges.filter(edge => edge.id !== selectedItem);
+            }
+            
+            clearSelection();
+            redrawEdges();
+            updateWorkflowInfo();
+        }
+        
+        // 添加箭头标记
+        function addArrowMarker() {
+            const svg = document.getElementById('canvasSvg');
+            
+            // 检查是否已存在箭头标记
+            if (!document.getElementById('arrowhead')) {
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                marker.setAttribute('id', 'arrowhead');
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '7');
+                marker.setAttribute('refX', '9');
+                marker.setAttribute('refY', '3.5');
+                marker.setAttribute('orient', 'auto');
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+                polygon.setAttribute('fill', '#4a90e2');
+                
+                marker.appendChild(polygon);
+                svg.appendChild(marker);
+            }
+        }
+        
+        // 添加箭头标记
+        addArrowMarker();
+    </script>
+</body>
+</html>

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>条件编辑演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #4a90e2;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .workflow-editor {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .canvas {
+            flex: 1;
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            height: 500px;
+            overflow: hidden;
+        }
+        
+        .node {
+            position: absolute;
+            width: 150px;
+            padding: 15px;
+            background: #4a90e2;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+        
+        .node:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .node.selected {
+            border: 2px solid #ff6b6b;
+        }
+        
+        .node input[type="button"] {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #4a90e2;
+            border-radius: 50%;
+            cursor: pointer;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 11;
+        }
+        
+        .node .input-point {
+            left: -10px;
+        }
+        
+        .node .output-point {
+            right: -10px;
+        }
+        
+        .controls {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4a90e2;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        select, input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .btn:hover {
+            background: #357abd;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        #svgCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            z-index: 5;
+        }
+        
+        .connection-line {
+            stroke: #4a90e2;
+            stroke-width: 3;
+            fill: none;
+            cursor: pointer;
+        }
+        
+        .connection-line.selected {
+            stroke: #ff6b6b;
+            stroke-width: 4;
+        }
+        
+        .condition-editor {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .condition-row {
+            margin-bottom: 10px;
+        }
+        
+        .condition-row select, .condition-row input {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>条件编辑演示</h1>
+            <p>点击连线，在右侧编辑条件</p>
+        </header>
+        
+        <div class="workflow-editor">
+            <!-- 画布 -->
+            <div class="canvas" id="canvas">
+                <svg id="svgCanvas"></svg>
+                
+                <!-- 示例节点 -->
+                <div class="node" style="left: 50px; top: 100px;">
+                    <div>页面提单</div>
+                    <div style="font-size: 12px; opacity: 0.8;">page_submit</div>
+                    <input type="button" class="output-point" data-node="1" data-point="output">
+                </div>
+                
+                <div class="node" style="left: 250px; top: 100px;">
+                    <div>入湖表检查</div>
+                    <div style="font-size: 12px; opacity: 0.8;">table_check</div>
+                    <input type="button" class="input-point" data-node="2" data-point="input">
+                    <input type="button" class="output-point" data-node="2" data-point="output">
+                </div>
+                
+                <div class="node" style="left: 450px; top: 50px;">
+                    <div>大模型分析</div>
+                    <div style="font-size: 12px; opacity: 0.8;">llm</div>
+                    <input type="button" class="input-point" data-node="3" data-point="input">
+                </div>
+                
+                <div class="node" style="left: 450px; top: 150px;">
+                    <div>SQL生成</div>
+                    <div style="font-size: 12px; opacity: 0.8;">sql_generate</div>
+                    <input type="button" class="input-point" data-node="4" data-point="input">
+                </div>
+            </div>
+            
+            <!-- 控制面板 -->
+            <div class="controls">
+                <h2>工作流信息</h2>
+                <div class="info-box">
+                    <strong>节点数:</strong> <span id="nodeCount">4</span><br>
+                    <strong>连线数:</strong> <span id="edgeCount">2</span><br>
+                    <strong>选中项:</strong> <span id="selectedItem">无</span>
+                </div>
+                
+                <h2>条件编辑</h2>
+                <div class="condition-editor">
+                    <div class="form-group">
+                        <label>当前连线条件:</label>
+                        <div id="currentCondition" style="padding: 10px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">无</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>条件类型:</label>
+                        <select id="conditionType">
+                            <option value="equals">等于</option>
+                            <option value="not_equals">不等于</option>
+                            <option value="greater">大于</option>
+                            <option value="less">小于</option>
+                            <option value="contains">包含</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>条件值:</label>
+                        <input type="text" id="conditionValue" placeholder="输入条件值">
+                    </div>
+                    
+                    <div class="condition-row">
+                        <button class="btn" onclick="setCondition()">设置条件</button>
+                        <button class="btn btn-danger" onclick="clearEdgeCondition()">清除条件</button>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <button class="btn btn-secondary" onclick="redrawAllEdges()">重绘连线</button>
+                        <button class="btn btn-secondary" onclick="addNewEdge()">添加新连线</button>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <h2>控制台输出</h2>
+                    <textarea id="console" rows="10" style="width: 100%; font-family: monospace; font-size: 12px;"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 工作流数据
+        let workflow = {
+            nodes: [
+                { id: 1, x: 50, y: 100, name: '页面提单', type: 'page_submit' },
+                { id: 2, x: 250, y: 100, name: '入湖表检查', type: 'table_check' },
+                { id: 3, x: 450, y: 50, name: '大模型分析', type: 'llm' },
+                { id: 4, x: 450, y: 150, name: 'SQL生成', type: 'sql_generate' }
+            ],
+            edges: [
+                { id: 1, source: 1, target: 2, condition: null },
+                { id: 2, source: 2, target: 3, condition: { type: 'equals', value: 'failed' } },
+                { id: 3, source: 2, target: 4, condition: { type: 'equals', value: 'success' } }
+            ]
+        };
+        
+        // 选中状态
+        let selectedEdge = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            redrawAllEdges();
+            updateInfo();
+        });
+        
+        // 重绘所有连线
+        function redrawAllEdges() {
+            const svg = document.getElementById('svgCanvas');
+            
+            // 清空现有连线
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+            
+            // 添加箭头标记
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', 'arrowhead');
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '7');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '3.5');
+            marker.setAttribute('orient', 'auto');
+            
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+            polygon.setAttribute('fill', '#4a90e2');
+            
+            marker.appendChild(polygon);
+            svg.appendChild(marker);
+            
+            // 绘制连线
+            workflow.edges.forEach(edge => {
+                const sourceNode = workflow.nodes.find(n => n.id === edge.source);
+                const targetNode = workflow.nodes.find(n => n.id === edge.target);
+                
+                if (sourceNode && targetNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('class', 'connection-line');
+                    if (selectedEdge === edge.id) {
+                        line.classList.add('selected');
+                    }
+                    line.setAttribute('x1', sourceNode.x + 150);
+                    line.setAttribute('y1', sourceNode.y + 30);
+                    line.setAttribute('x2', targetNode.x);
+                    line.setAttribute('y2', targetNode.y + 30);
+                    line.setAttribute('stroke', '#4a90e2');
+                    line.setAttribute('stroke-width', '3');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                    line.setAttribute('data-edge-id', edge.id);
+                    
+                    // 点击事件
+                    line.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        selectEdge(edge.id);
+                    });
+                    
+                    svg.appendChild(line);
+                }
+            });
+        }
+        
+        // 选择连线
+        function selectEdge(edgeId) {
+            selectedEdge = edgeId;
+            redrawAllEdges();
+            updateInfo();
+            
+            // 显示当前条件
+            const edge = workflow.edges.find(e => e.id === edgeId);
+            if (edge && edge.condition) {
+                document.getElementById('currentCondition').innerHTML = `条件: ${edge.condition.type} ${edge.condition.value}`;
+                document.getElementById('conditionType').value = edge.condition.type;
+                document.getElementById('conditionValue').value = edge.condition.value;
+            } else {
+                document.getElementById('currentCondition').innerHTML = '无';
+                document.getElementById('conditionType').value = 'equals';
+                document.getElementById('conditionValue').value = '';
+            }
+        }
+        
+        // 设置条件
+        function setCondition() {
+            if (!selectedEdge) {
+                alert('请先选择一条连线');
+                return;
+            }
+            
+            const type = document.getElementById('conditionType').value;
+            const value = document.getElementById('conditionValue').value;
+            
+            if (!value) {
+                alert('请输入条件值');
+                return;
+            }
+            
+            const edge = workflow.edges.find(e => e.id === selectedEdge);
+            if (edge) {
+                edge.condition = { type: type, value: value };
+                document.getElementById('currentCondition').innerHTML = `条件: ${type} ${value}`;
+                redrawAllEdges();
+                updateInfo();
+                log(`设置连线 ${edge.id} 条件: ${type} ${value}`);
+            }
+        }
+        
+        // 清除条件
+        function clearEdgeCondition() {
+            if (!selectedEdge) {
+                alert('请先选择一条连线');
+                return;
+            }
+            
+            const edge = workflow.edges.find(e => e.id === selectedEdge);
+            if (edge) {
+                edge.condition = null;
+                document.getElementById('currentCondition').innerHTML = '无';
+                document.getElementById('conditionValue').value = '';
+                redrawAllEdges();
+                updateInfo();
+                log(`清除连线 ${edge.id} 条件`);
+            }
+        }
+        
+        // 更新信息
+        function updateInfo() {
+            document.getElementById('nodeCount').textContent = workflow.nodes.length;
+            document.getElementById('edgeCount').textContent = workflow.edges.length;
+            
+            if (selectedEdge) {
+                document.getElementById('selectedItem').textContent = `连线 ${selectedEdge}`;
+            } else {
+                document.getElementById('selectedItem').textContent = '无';
+            }
+        }
+        
+        // 添加新连线
+        function addNewEdge() {
+            const newEdge = {
+                id: workflow.edges.length + 1,
+                source: 1,
+                target: 2,
+                condition: null
+            };
+            workflow.edges.push(newEdge);
+            redrawAllEdges();
+            updateInfo();
+            log(`添加新连线 ${newEdge.id}`);
+        }
+        
+        // 日志
+        function log(message) {
+            const consoleEl = document.getElementById('console');
+            consoleEl.value += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+        
+        // 画布点击事件
+        document.getElementById('canvas').addEventListener('click', function(e) {
+            if (e.target === this || e.target.tagName === 'svg') {
+                selectedEdge = null;
+                redrawAllEdges();
+                updateInfo();
+                document.getElementById('currentCondition').innerHTML = '无';
+                document.getElementById('conditionValue').value = '';
+            }
+        });
+    </script>
+</body>
+</html>

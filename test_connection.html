@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连接功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        #canvas {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 500px;
+            background: linear-gradient(90deg, #f5f5f5 1px, transparent 1px), linear-gradient(#f5f5f5 1px, transparent 1px);
+            background-size: 20px 20px;
+            position: relative;
+            overflow: auto;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .canvas-node {
+            position: absolute;
+            width: 160px;
+            height: 60px;
+            background-color: #4a90e2;
+            color: #ffffff;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: move;
+            z-index: 100;
+            user-select: none;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            border: 2px solid #ffffff;
+            transition: all 0.3s ease;
+        }
+        
+        .canvas-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .connection-point {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 0 2px #4a90e2;
+            transition: all 0.2s ease;
+        }
+        
+        .connection-point:hover {
+            transform: scale(1.3);
+        }
+        
+        .connection-point[data-direction="right"] {
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .connection-point[data-direction="left"] {
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .canvas-edge {
+            position: absolute;
+            z-index: 50;
+        }
+        
+        .temp-edge {
+            position: absolute;
+            z-index: 50;
+            pointer-events: none;
+        }
+        
+        .test-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .success {
+            color: #5cb85c;
+        }
+        
+        .error {
+            color: #d9534f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>节点连接功能测试</h1>
+        
+        <div class="test-info">
+            <h3>测试说明</h3>
+            <p>1. 点击左侧节点的右侧连接点</p>
+            <p>2. 拖拽鼠标到右侧节点</p>
+            <p>3. 点击右侧节点的左侧连接点</p>
+            <p>4. 检查是否成功创建连线</p>
+        </div>
+        
+        <div id="canvas">
+            <!-- 测试节点 1 -->
+            <div id="node1" class="canvas-node" style="left: 100px; top: 100px;">
+                <div>测试节点 1</div>
+                <div class="connection-point" data-direction="right"></div>
+                <div class="connection-point" data-direction="left"></div>
+            </div>
+            
+            <!-- 测试节点 2 -->
+            <div id="node2" class="canvas-node" style="left: 400px; top: 100px; background-color: #50e3c2;">
+                <div>测试节点 2</div>
+                <div class="connection-point" data-direction="right"></div>
+                <div class="connection-point" data-direction="left"></div>
+            </div>
+        </div>
+        
+        <div class="test-result">
+            <h3>测试结果</h3>
+            <div id="result">等待测试...</div>
+        </div>
+    </div>
+    
+    <script>
+        let canvasNodes = [];
+        let canvasEdges = [];
+        let nextNodeId = 3;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化现有节点
+            const node1 = document.getElementById('node1');
+            const node2 = document.getElementById('node2');
+            
+            canvasNodes.push({
+                id: 'node1',
+                type: 'test_node_1',
+                name: '测试节点 1',
+                x: 100,
+                y: 100,
+                width: 160,
+                height: 60,
+                color: '#4a90e2'
+            });
+            
+            canvasNodes.push({
+                id: 'node2',
+                type: 'test_node_2',
+                name: '测试节点 2',
+                x: 400,
+                y: 100,
+                width: 160,
+                height: 60,
+                color: '#50e3c2'
+            });
+            
+            // 为现有节点添加拖拽和连接功能
+            makeDraggable(node1);
+            makeDraggable(node2);
+        });
+        
+        // 使节点可拖拽
+        function makeDraggable(element) {
+            let isDragging = false;
+            let offsetX, offsetY;
+            
+            element.addEventListener('mousedown', function(e) {
+                // 点击连接点检测
+                if (e.target.classList.contains('connection-point')) {
+                    // 点击连接点，开始连线
+                    startConnection(element, e.target);
+                    return;
+                }
+                
+                isDragging = true;
+                const rect = element.getBoundingClientRect();
+                const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+            
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                
+                const canvas = document.getElementById('canvas');
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left - offsetX;
+                const y = e.clientY - rect.top - offsetY;
+                
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                
+                // 更新节点位置
+                const nodeId = element.id;
+                const nodeIndex = canvasNodes.findIndex(n => n.id === nodeId);
+                if (nodeIndex !== -1) {
+                    canvasNodes[nodeIndex].x = x;
+                    canvasNodes[nodeIndex].y = y;
+                }
+                
+                // 更新画布连线
+                redrawEdges();
+            }
+            
+            function onMouseUp() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        }
+        
+        // 开始连线
+        function startConnection(startNode, startPoint) {
+            let isConnecting = true;
+            
+            const canvas = document.getElementById('canvas');
+            
+            // 创建临时连线
+            const tempLine = document.createElement('div');
+            tempLine.className = 'temp-edge';
+            tempLine.style.position = 'absolute';
+            tempLine.style.zIndex = '50';
+            tempLine.style.pointerEvents = 'none';
+            canvas.appendChild(tempLine);
+            
+            function updateTempLine(e) {
+                if (!isConnecting) return;
+                
+                const startRect = startNode.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                
+                // 获取起始点坐标
+                let startX, startY;
+                if (startPoint) {
+                    const pointRect = startPoint.getBoundingClientRect();
+                    startX = pointRect.left + pointRect.width / 2;
+                    startY = pointRect.top + pointRect.height / 2;
+                } else {
+                    startX = startRect.right;
+                    startY = startRect.top + startRect.height / 2;
+                }
+                
+                const canvasX1 = startX - canvasRect.left;
+                const canvasY1 = startY - canvasRect.top;
+                const canvasX2 = e.clientX - canvasRect.left;
+                const canvasY2 = e.clientY - canvasRect.top;
+                
+                drawLine(tempLine, canvasX1, canvasY1, canvasX2, canvasY2);
+            }
+            
+            function endConnection(e) {
+                isConnecting = false;
+                canvas.removeChild(tempLine);
+                
+                // 检查是否点击了另一个节点的连接点
+                const targetPoint = e.target.closest('.connection-point');
+                if (targetPoint) {
+                    const targetNode = targetPoint.closest('.canvas-node');
+                    if (targetNode && targetNode !== startNode) {
+                        // 添加连线
+                        addEdge(startNode.id, targetNode.id);
+                        document.getElementById('result').innerHTML = '<span class="success">✓ 连接成功！</span>';
+                    }
+                } else {
+                    // 检查是否点击了另一个节点
+                    const targetNode = e.target.closest('.canvas-node');
+                    if (targetNode && targetNode !== startNode) {
+                        // 添加连线
+                        addEdge(startNode.id, targetNode.id);
+                        document.getElementById('result').innerHTML = '<span class="success">✓ 连接成功！</span>';
+                    } else {
+                        document.getElementById('result').innerHTML = '<span class="error">✗ 连接失败：未点击有效目标</span>';
+                    }
+                }
+                
+                document.removeEventListener('mousemove', updateTempLine);
+                document.removeEventListener('mouseup', endConnection);
+            }
+            
+            document.addEventListener('mousemove', updateTempLine);
+            document.addEventListener('mouseup', endConnection);
+        }
+        
+        // 添加连线
+        function addEdge(startNodeId, endNodeId) {
+            // 检查是否已存在相同的边
+            const existingEdge = canvasEdges.find(e => e.start === startNodeId && e.end === endNodeId);
+            if (existingEdge) {
+                document.getElementById('result').innerHTML = '<span class="error">✗ 连接失败：边已存在</span>';
+                return;
+            }
+            
+            canvasEdges.push({
+                start: startNodeId,
+                end: endNodeId
+            });
+            
+            redrawEdges();
+            
+            console.log('Edge added:', startNodeId, '->', endNodeId);
+            console.log('Total edges:', canvasEdges.length);
+        }
+        
+        // 绘制连线
+        function drawLine(element, x1, y1, x2, y2) {
+            // 计算连线路径
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            
+            // 使用贝塞尔曲线使连线更平滑
+            const controlPointOffset = 50;
+            const path = `M ${x1} ${y1} C ${x1 + controlPointOffset} ${y1}, ${x2 - controlPointOffset} ${y2}, ${x2} ${y2}`;
+            
+            // 设置连线样式
+            element.style.position = 'absolute';
+            element.style.zIndex = '50';
+            element.style.pointerEvents = 'none';
+            element.style.width = 'auto';
+            element.style.height = 'auto';
+            element.style.background = 'none';
+            
+            // 使用SVG绘制平滑曲线
+            element.innerHTML = `
+                <svg width="${Math.abs(dx) + controlPointOffset * 2}" height="${Math.abs(dy) + controlPointOffset}" style="position: absolute; left: ${Math.min(x1, x2)}px; top: ${Math.min(y1, y2)}px;">
+                    <path d="${path}" stroke="#4a90e2" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    <!-- 箭头 -->
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#4a90e2"/>
+                    </marker>
+                    <path d="${path}" stroke="#4a90e2" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowhead)"/>
+                </svg>
+            `;
+        }
+        
+        // 重绘画布上的所有连线
+        function redrawEdges() {
+            // 清除现有连线
+            const existingEdges = document.querySelectorAll('.canvas-edge');
+            existingEdges.forEach(edge => edge.remove());
+            
+            const canvas = document.getElementById('canvas');
+            
+            canvasEdges.forEach((edge, index) => {
+                const startNode = document.getElementById(edge.start);
+                const endNode = document.getElementById(edge.end);
+                
+                if (startNode && endNode) {
+                    const startRect = startNode.getBoundingClientRect();
+                    const endRect = endNode.getBoundingClientRect();
+                    const canvasRect = canvas.getBoundingClientRect();
+                    
+                    const x1 = startRect.right - canvasRect.left;
+                    const y1 = startRect.top + startRect.height / 2 - canvasRect.top;
+                    const x2 = endRect.left - canvasRect.left;
+                    const y2 = endRect.top + endRect.height / 2 - canvasRect.top;
+                    
+                    const line = document.createElement('div');
+                    line.className = 'canvas-edge';
+                    line.style.position = 'absolute';
+                    line.style.zIndex = '50';
+                    canvas.appendChild(line);
+                    
+                    drawLine(line, x1, y1, x2, y2);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
