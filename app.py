@@ -854,5 +854,5 @@ if __name__ == '__main__':
     )
     workflow_manager.register_workflow(default_config)
     
-    # 启动服务器
-    app.run(debug=True, port=5000)
+    # 启动服务器 - 禁用自动重载器以确保断点可以正常工作
+    app.run(debug=True, port=5000, use_reloader=False)
