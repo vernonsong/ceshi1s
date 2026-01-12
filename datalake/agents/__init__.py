@@ -1,4 +1,8 @@
-# 欲买桂花同载酒，
-# 终不似、少年游。
-# Copyright (c) VernonSong. All rights reserved.
-# ======================================================================================================================
+# 工作流编排智能体
+from .workflow_agent import WorkflowAgent, workflow_agent, get_workflow_agent
+
+__all__ = [
+    "WorkflowAgent",
+    "workflow_agent",
+    "get_workflow_agent"
+]

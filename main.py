@@ -1,16 +1,19 @@
-# 这是一个示例 Python 脚本。
+# 欲买桂花同载酒，
+# 终不似、少年游。
+# Copyright (c) VernonSong. All rights reserved.
+# ======================================================================================================================
+"""
+数据湖服务主入口
+"""
 
-# 按 ⌃R 执行或将其替换为您的代码。
-# 按 双击 ⇧ 在所有地方搜索类、文件、工具窗口、操作和设置。
+from datalake.server import server
 
 
-def print_hi(name):
-    # 在下面的代码行中使用断点来调试脚本。
-    print(f'Hi, {name}')  # 按 ⌘F8 切换断点。
-
-
-# 按装订区域中的绿色按钮以运行脚本。
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
+if __name__ == "__main__":
+    """
+    启动数据湖服务
+    """
+    print("Starting DataLake Server...")
+    print("API Documentation: http://localhost:8000/docs")
+    print("ReDoc Documentation: http://localhost:8000/redoc")
+    server.run(host="0.0.0.0", port=8000, reload=True)

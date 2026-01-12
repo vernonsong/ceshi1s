@@ -4,7 +4,7 @@
 # ======================================================================================================================
 
 # 导入所有节点
-from .page_submit import page_submit_node, page_submit_metadata
+from .page_submit import page_submit_node
 from .table_check import table_check_node, table_check_metadata
 from .llm import llm_node
 from .sql_generate import sql_generate_node, sql_generate_metadata
@@ -14,6 +14,8 @@ from .integration_task_deploy import integration_task_deploy_node, integration_t
 from .artifact_generate import artifact_generate_node, artifact_generate_metadata
 from .example_node import example_node
 from .data_processing import data_processing_node, InputData, ProcessingConfig, DataSourceConfig, ProcessingResult
+from .db_type_query import db_type_query_node
+from .table_field_query import table_field_query_node
 
 # 创建节点映射
 try:
@@ -27,7 +29,10 @@ try:
         "integration_task_deploy": integration_task_deploy_node,
         "artifact_generate": artifact_generate_node,
         "example": example_node,
-        "data_processing": data_processing_node
+        "db_type_query": db_type_query_node,
+        "table_field_query": table_field_query_node,
+        "data_processing": data_processing_node,
+        "db_type_query": db_type_query_node
     }
 except Exception as e:
     print(f"Error creating NODE_MAPPING: {e}")
@@ -37,7 +42,6 @@ except Exception as e:
 __all__ = [
     # 页面提单节点
     "page_submit_node",
-    "page_submit_metadata",
     
     # 表检查节点
     "table_check_node",
@@ -75,6 +79,9 @@ __all__ = [
     "ProcessingConfig",
     "DataSourceConfig",
     "ProcessingResult",
+    
+    # 数据库类型查询节点
+    "db_type_query_node",
     
     # 节点映射
     "NODE_MAPPING"
