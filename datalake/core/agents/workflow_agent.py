@@ -8,7 +8,7 @@
 from typing import Dict, Any, List
 import json
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain.messages import HumanMessage
 from datalake.core.workflow.models import NodeMetadata
 from datalake.core.nodes import NODE_MAPPING
 
@@ -24,11 +24,11 @@ class WorkflowAgent:
             temperature: 大模型的温度参数，控制生成结果的随机性
         """
         self.llm = ChatOpenAI(
-            model_name=model_name,
+            model=model_name,
             temperature=temperature,
             # 配置API密钥和基础URL，这些应该从环境变量或配置文件中获取
-            # api_key="your_api_key",
-            # base_url="https://api.example.com/v1"
+            api_key="",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
         )
         
         # 获取支持的节点类型信息
@@ -43,33 +43,40 @@ class WorkflowAgent:
         """
         nodes_info = {}
         
-        for node_type, node_func in NODE_MAPPING.items():
-            # 尝试获取节点的元数据信息
-            if hasattr(node_func, "metadata") and isinstance(node_func.metadata, NodeMetadata):
-                metadata = node_func.metadata
-                nodes_info[node_type] = {
-                    "name": metadata.name,
-                    "description": metadata.description,
-                    "type": metadata.type,
-                    "inputs": [
-                        {
-                            "name": input_param.name,
-                            "description": input_param.description,
-                            "data_type": input_param.data_type,
-                            "required": input_param.required
-                        }
-                        for input_param in metadata.inputs
-                    ],
-                    "outputs": [
-                        {
-                            "name": output_param.name,
-                            "description": output_param.description,
-                            "data_type": output_param.data_type
-                        }
-                        for output_param in metadata.outputs
-                    ],
-                    "category": metadata.category
-                }
+        from datalake.core.workflow.models import node_registry
+        
+        for node_type in NODE_MAPPING.keys():
+            # 从节点注册表中获取节点元数据
+            if node_type in node_registry:
+                registry_entry = node_registry[node_type]
+                metadata = registry_entry.get("metadata")
+                if isinstance(metadata, NodeMetadata):
+                    # 获取节点类型的额外属性
+                    type_attrs = metadata.__dict__ if hasattr(metadata, "__dict__") else {}
+                    
+                    nodes_info[node_type] = {
+                        "name": metadata.name,
+                        "description": metadata.description,
+                        "type": type_attrs.get("type", "custom"),
+                        "inputs": [
+                            {
+                                "name": input_param.name,
+                                "description": input_param.description,
+                                "data_type": getattr(input_param, "data_type", "string"),
+                                "required": getattr(input_param, "required", False)
+                            }
+                            for input_param in metadata.inputs
+                        ],
+                        "outputs": [
+                            {
+                                "name": output_param.name,
+                                "description": output_param.description,
+                                "data_type": getattr(output_param, "data_type", "string")
+                            }
+                            for output_param in metadata.outputs
+                        ],
+                        "category": type_attrs.get("category", "default")
+                    }
         
         return nodes_info
     
@@ -126,34 +133,34 @@ class WorkflowAgent:
         {supported_nodes_json}
         
         流程图JSON的格式要求：
-        {
+        {{
             "nodes": [
-                {
+                {{
                     "id": "节点ID",
                     "type": "节点类型",
                     "name": "节点名称",
                     "inputs": [
-                        {
+                        {{
                             "name": "参数名",
                             "source_type": "raw_input|node_output|complex",
                             "input_key": "原始输入的键",
                             "node_id": "前置节点ID",
                             "output_field": "前置节点输出字段",
                             "transform_script": "Python转换脚本"
-                        }
+                        }}
                     ]
-                }
+                }}
             ],
             "edges": [
-                {
+                {{
                     "source": "源节点ID",
                     "target": "目标节点ID",
                     "condition": "条件表达式"
-                }
+                }}
             ],
             "start_node": "起始节点ID",
             "end_nodes": ["结束节点ID"]
-        }
+        }}
         
         注意事项：
         1. 请严格按照用户需求生成流程图，确保节点之间的依赖关系正确

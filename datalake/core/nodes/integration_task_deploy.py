@@ -8,20 +8,8 @@ integration_task_deploy_metadata = NodeMetadata(
     type="task",
     inputs=[
         NodeInputParameter(
-            name="task_id",
-            description="任务ID",
-            data_type="string",
-            required=True
-        ),
-        NodeInputParameter(
-            name="task_name",
-            description="任务名称",
-            data_type="string",
-            required=True
-        ),
-        NodeInputParameter(
-            name="task_parameters",
-            description="任务参数",
+            name="upstream_api_json",
+            description="调用上游接口的JSON数据",
             data_type="dict",
             required=True
         )
@@ -33,18 +21,13 @@ integration_task_deploy_metadata = NodeMetadata(
             data_type="string"
         ),
         NodeOutputParameter(
-            name="deployment_result",
-            description="部署结果",
-            data_type="dict"
+            name="jobid",
+            description="部署任务的Job ID",
+            data_type="string"
         ),
         NodeOutputParameter(
-            name="task_schedule",
-            description="任务调度信息",
-            data_type="dict"
-        ),
-        NodeOutputParameter(
-            name="error_message",
-            description="错误信息",
+            name="deploy_message",
+            description="部署消息",
             data_type="string"
         )
     ],
@@ -57,55 +40,53 @@ integration_task_deploy_metadata = NodeMetadata(
 def integration_task_deploy_node(state: dict) -> Dict[str, Any]:
     print(f"Executing Integration Task Deploy Node for request: {state.get('request_id')}")
     
-    # 从集成任务生成结果中获取任务信息
-    integration_task_generate_result = state.get("results", {}).get("integration_task_generate", {})
-    task_id = integration_task_generate_result.get("task_id")
-    task_name = integration_task_generate_result.get("task_name")
-    task_parameters = integration_task_generate_result.get("task_parameters", {})
+    # 获取输入参数
+    source_data = state.get("source_data", {})
+    results = state.get("results", {})
     
-    # 模拟任务部署
-    # 随机生成部署结果，95%概率成功
+    # 从integration_task_generate结果中获取上游接口JSON
+    integration_task_generate_result = results.get("integration_task_generate", {})
+    upstream_api_json = integration_task_generate_result.get("upstream_api_json", {})
+    
+    # 如果results中没有，尝试从source_data获取
+    if not upstream_api_json:
+        upstream_api_json = source_data.get("upstream_api_json", {})
+    
+    print(f"Deploying task with JSON: {upstream_api_json}")
+    print(f"Task Name: {upstream_api_json.get('task_info', {}).get('name')}")
+    
+    # 模拟调用上游接口部署任务
     import random
+    import time
+    
+    # 模拟API调用延迟
+    time.sleep(0.5)
+    
+    # 随机生成部署结果，95%概率成功
     is_success = random.choice([True] * 19 + [False])
     
     if is_success:
         status = "success"
-        deployment_result = {
-            "task_id": task_id,
-            "task_name": task_name,
-            "status": "deployed",
-            "message": "Task deployed successfully"
-        }
-        task_schedule = {
-            "task_id": task_id,
-            "schedule_type": "cron",
-            "schedule_expression": "0 0 * * *",
-            "next_run_time": "2024-01-02 00:00:00",
-            "is_active": True
-        }
-        error_message = ""
+        # 生成随机的jobid
+        jobid = f"JOB-{random.randint(10000000, 99999999)}"
+        deploy_message = f"Task deployed successfully, Job ID: {jobid}"
     else:
         status = "failed"
-        deployment_result = {
-            "task_id": task_id,
-            "task_name": task_name,
-            "status": "failed",
-            "message": "Task deployment failed"
-        }
-        task_schedule = {}
-        error_message = "Connection timeout while deploying task"
+        jobid = ""
+        deploy_message = f"Task deployment failed: {random.choice(['API connection error', 'Invalid JSON format', 'Permission denied', 'Server error'])}"
+    
+    print(f"Deployment Result: {status}, JobID: {jobid}")
     
     return {
         "request_id": state.get('request_id'),
         "workflow_config": state.get('workflow_config'),
         "source_data": state.get('source_data'),
         "results": {
-            **state.get('results', {}),
+            **results,
             "integration_task_deploy": {
                 "status": status,
-                "deployment_result": deployment_result,
-                "task_schedule": task_schedule,
-                "error_message": error_message
+                "jobid": jobid,
+                "deploy_message": deploy_message
             }
         },
         "current_node": "integration_task_deploy"
